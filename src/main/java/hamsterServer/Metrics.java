@@ -47,7 +47,7 @@ public class Metrics extends ChannelTrafficShapingHandler {
 
         if (msg instanceof HttpRequest) {
             oneConnectionStat.setUri(((HttpRequest) msg).getUri());
-            Initializer.statisticData.updateUrlRequests(((HttpRequest) msg).getUri());
+//            Initializer.statisticData.updateUrlRequests(((HttpRequest) msg).getUri());
         }
     }
 
@@ -72,7 +72,7 @@ public class Metrics extends ChannelTrafficShapingHandler {
         // if work time < 0 sec, set statistic report Speed value of totalReedWrightBytes;
         oneConnectionStat.setSpeed(totalWorkTime > 0 ? totalReedWrightBytes / totalWorkTime : totalReedWrightBytes);
         Initializer.statisticData.addLastConnection(oneConnectionStat);
-
+        Initializer.statisticData.doUpdates();
         super.channelInactive(ctx);
     }
 
@@ -82,13 +82,5 @@ public class Metrics extends ChannelTrafficShapingHandler {
         cause.printStackTrace();
         ctx.close();
     }
-
-    @Override
-    public void read(ChannelHandlerContext ctx) {
-        super.read(ctx);
-        System.out.println("IN read Metrics");
-    }
-
-
 }
 

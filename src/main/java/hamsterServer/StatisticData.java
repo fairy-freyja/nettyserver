@@ -121,15 +121,25 @@ public class StatisticData {
 
 
     public synchronized void doUpdates() {
-        updateDifferentIpRequests();
-        updateUniqueIpRequests();
-        updateUrlRequests(getStatisticForLastConnection().getURI());
+        if(lastConnections.size()<=0){
+            return;
+        }
+            updateDifferentIpRequests();
+            updateUniqueIpRequests();
+            updateUrlRequests(getStatisticForLastConnection().getURI());
     }
 
     public synchronized String creatureReport() {
 
         // do updates before start creature Report String
-        doUpdates();
+        // doUpdates();
+
+        // check possibility to creature report
+        if(! (differentIpRequests.size() > 0 && uniqueIpRequests.size() > 0 && lastConnections.size() > 0)){
+                return "<html><head><center><font size=15>Server statistic data is not available</font></center></head>";
+        }
+
+
 
         String head = "<html><head><center><font size=15>Server statistic data</font></center></head>";
 
