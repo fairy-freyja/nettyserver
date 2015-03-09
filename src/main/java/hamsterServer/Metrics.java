@@ -1,15 +1,13 @@
 package hamsterServer;
 
-
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.traffic.ChannelTrafficShapingHandler;
 
-
-/**
- * Created by Wyvern on 06.03.2015.
+/*
+ * Created by Fairy on 06.03.2015.
  */
-public class Metrics extends ChannelTrafficShapingHandler{
+public class Metrics extends ChannelTrafficShapingHandler {
 
     private StatisticForOneConnection oneConnectionStat = new StatisticForOneConnection();
 
@@ -20,13 +18,26 @@ public class Metrics extends ChannelTrafficShapingHandler{
         oneConnectionStat.setIp(ip);
     }
 
+    @Override
+    public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+        super.handlerAdded(ctx);
+        System.out.println("IN handAdd");
+        Initializer.statisticData.incrementTotalRequests();
+        Initializer.statisticData.incrementOpenConnection();
+    }
+
+    @Override
+    public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
+        super.handlerRemoved(ctx);
+        System.out.println("IN handRem");
+        Initializer.statisticData.decrementOpenConnection();
+    }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
         System.out.println("IN channelActive Metrics");
         startTime = System.currentTimeMillis();
-        Initializer.statisticData.incrementOpenConnection();
     }
 
     @Override
@@ -34,12 +45,12 @@ public class Metrics extends ChannelTrafficShapingHandler{
         super.channelRead(ctx, msg);
         System.out.println("IN channelRead Metrics");
 
-        if(msg instanceof HttpRequest) {
+        if (msg instanceof HttpRequest) {
             oneConnectionStat.setUri(((HttpRequest) msg).getUri());
             Initializer.statisticData.updateUrlRequests(((HttpRequest) msg).getUri());
         }
-
     }
+
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
         super.channelReadComplete(ctx);
@@ -55,12 +66,11 @@ public class Metrics extends ChannelTrafficShapingHandler{
 
         oneConnectionStat.setWriteBytes(trafficCounter.cumulativeWrittenBytes());
 
-        long totalWorkTime = (System.currentTimeMillis()-startTime)/1000;
+        long totalWorkTime = (System.currentTimeMillis() - startTime) / 1000;
         long totalReedWrightBytes = (trafficCounter.cumulativeReadBytes() + trafficCounter.cumulativeWrittenBytes());
 
         // if work time < 0 sec, set statistic report Speed value of totalReedWrightBytes;
-        oneConnectionStat.setSpeed(totalWorkTime > 0 ? totalReedWrightBytes/totalWorkTime : totalReedWrightBytes);
-        Initializer.statisticData.decrementOpenConnection();
+        oneConnectionStat.setSpeed(totalWorkTime > 0 ? totalReedWrightBytes / totalWorkTime : totalReedWrightBytes);
         Initializer.statisticData.addLastConnection(oneConnectionStat);
 
         super.channelInactive(ctx);
@@ -68,7 +78,7 @@ public class Metrics extends ChannelTrafficShapingHandler{
 
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause)	throws Exception {
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         cause.printStackTrace();
         ctx.close();
     }

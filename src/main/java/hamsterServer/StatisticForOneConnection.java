@@ -2,6 +2,9 @@ package hamsterServer;
 
 import java.util.Date;
 
+/*
+ * Created by Fairy on 07.03.2015.
+ */
 public class StatisticForOneConnection {
 	private String ip = "";
 	private String uri = "";
@@ -31,9 +34,6 @@ public class StatisticForOneConnection {
 	public Date getDate() {
 		return date;
 	}
-    public String getDateString() {
-        return date + "";
-    }
 	public String getWriteBytes() {
 		return writeBytes + "";
 	}

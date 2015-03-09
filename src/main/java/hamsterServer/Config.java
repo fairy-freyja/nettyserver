@@ -3,9 +3,9 @@ package hamsterServer;
 import java.io.IOException;
 import java.util.Properties;
 
-/**
-* Created by Wyvern on 06.03.2015.
-*/
+/*
+ * Created by Fairy on 06.03.2015.
+ */
 public class Config {
 
     public static final int PORT;
