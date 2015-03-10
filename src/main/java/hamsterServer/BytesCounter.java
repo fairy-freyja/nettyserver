@@ -21,27 +21,20 @@ public class BytesCounter extends ChannelTrafficShapingHandler {
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
         super.handlerAdded(ctx);
-        System.out.println("IN handAdd");
+        StatisticForOneConnection oneConnection = new StatisticForOneConnection();
+        oneConnection.setIp(ip);
+        statisticData.registerNewConnection(oneConnection);
 
-        statisticData.incrementTotalRequests();
-        statisticData.incrementOpenConnection();
+        ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).set(oneConnection);
+
     }
 
-    @Override
-    public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
-        super.handlerRemoved(ctx);
-        System.out.println("IN handRem");
-        statisticData.decrementOpenConnection();
-    }
+
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-        System.out.println("IN channelActive Metrics");
-        StatisticForOneConnection oneConnection = new StatisticForOneConnection();
-        oneConnection.setIp(ip);
-        ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).set(oneConnection);
-        statisticData.updateDifferentIpRequests(ctx);
+
         startTime = System.currentTimeMillis();
 
     }
@@ -49,20 +42,19 @@ public class BytesCounter extends ChannelTrafficShapingHandler {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         super.channelRead(ctx, msg);
-        StatisticForOneConnection oneConnection = ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).get();
-        oneConnection.setReadBytes(trafficCounter.cumulativeReadBytes());
     }
 
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
         super.channelReadComplete(ctx);
+        StatisticForOneConnection oneConnection = ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).get();
+        oneConnection.setReadBytes(trafficCounter.cumulativeReadBytes());
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        System.out.println("IN channelInactive Metrics");
-
         StatisticForOneConnection oneConnection = ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).get();
+
         long writeByte = trafficCounter.cumulativeWrittenBytes();
         oneConnection.setWriteBytes(writeByte);
 
@@ -71,7 +63,6 @@ public class BytesCounter extends ChannelTrafficShapingHandler {
 
         // if work time < 0 sec, set statistic report Speed value of totalReedWrightBytes;
         oneConnection.setSpeed(totalWorkTime > 0 ? totalReedWrightBytes / totalWorkTime : totalReedWrightBytes);
-        statisticData.addLastConnection(oneConnection);
 
         super.channelInactive(ctx);
     }
@@ -81,6 +72,14 @@ public class BytesCounter extends ChannelTrafficShapingHandler {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         cause.printStackTrace();
         ctx.close();
+    }
+
+    @Override
+    public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
+        super.handlerRemoved(ctx);
+
+        StatisticForOneConnection oneConnection = ctx.attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).get();
+        statisticData.finishConnection();
     }
 }
 
