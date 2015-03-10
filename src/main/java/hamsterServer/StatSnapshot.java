@@ -1,60 +1,60 @@
 package hamsterServer;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Created by Wyvern on 10.03.2015.
+/*
+ * Created by Fairy on 10.03.2015.
  */
 public class StatSnapshot {
-
-
-    private AtomicInteger totalConnections;
-    private AtomicInteger openConnection;
-    private HashMap<String, Long[]> differentIpRequests;
-    private HashMap<String, HashSet<String>> uniqueIpRequests;
-    private Map<String, Integer> urlRequests = new TreeMap<>();
+    private long totalConnectionCount;
+    private long openConnectionCount;
+    private HashMap<String, RemoteIpInfo> ipInfoMap;
+    private HashMap<String, Long> requestCountPerUri;
     private StatisticForOneConnection[] lastConnections;
+    private HashMap<String, Long> redirections;
 
-
-    public StatSnapshot(StatisticForOneConnection[] lastConnections,
-                        AtomicInteger totalConnections,
-                        AtomicInteger openConnection,
-                        HashMap<String, Long[]> differentIpRequests,
-                        HashMap<String, HashSet<String>> uniqueIpRequests,
-                        Map<String, Integer> urlRequests) {
-
+    public StatSnapshot(long totalConnectionCount,
+                        long openConnectionCount,
+                        HashMap<String, RemoteIpInfo> ipInfoMap,
+                        HashMap<String, Long> requestCountPerUri,
+                        StatisticForOneConnection[] lastConnections,
+                        HashMap<String, Long> redirections) {
+        this.totalConnectionCount = totalConnectionCount;
+        this.openConnectionCount = openConnectionCount;
+        this.ipInfoMap = ipInfoMap;
+        this.requestCountPerUri = requestCountPerUri;
         this.lastConnections = lastConnections;
-        this.totalConnections = totalConnections;
-        this.openConnection = openConnection;
-        this.differentIpRequests = differentIpRequests;
-        this.uniqueIpRequests = uniqueIpRequests;
-        this.urlRequests = urlRequests;
+        this.redirections = redirections;
     }
 
-    public AtomicInteger getTotalConnections() {
-        return totalConnections;
+    public long getTotalConnectionCount() {
+        return totalConnectionCount;
     }
 
-    public AtomicInteger getOpenConnection() {
-        return openConnection;
+    public long getOpenConnectionCount() {
+        return openConnectionCount;
     }
 
-    public HashMap<String, Long[]> getDifferentIpRequests() {
-        return differentIpRequests;
+    public HashMap<String, RemoteIpInfo> getIpInfoMap() {
+        return ipInfoMap;
     }
 
-    public HashMap<String, HashSet<String>> getUniqueIpRequests() {
-        return uniqueIpRequests;
-    }
-
-    public Map<String, Integer> getUrlRequests() {
-        return urlRequests;
+    public HashMap<String, Long> getRequestCountPerUri() {
+        return requestCountPerUri;
     }
 
     public StatisticForOneConnection[] getLastConnections() {
         return lastConnections;
     }
+
+    public HashMap<String, Long> getRedirections() {
+        return redirections;
+    }
+
+    public int getUniqueVisitorCount() {
+        return ipInfoMap.size();
+    }
+}
 }
 
 
