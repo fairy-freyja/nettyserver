@@ -106,7 +106,7 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
     //The method which provides an answer to the Status query
     private FullHttpResponse statusResponse() {
         return new DefaultFullHttpResponse(HTTP_1_1, OK,
-                Unpooled.copiedBuffer(creatureReport(statisticData.snapshot()), UTF_8));
+                Unpooled.copiedBuffer(creatureReport(), UTF_8));
     }
     private FullHttpResponse invalidRedirectResponse() {
         return new DefaultFullHttpResponse(HTTP_1_1, BAD_REQUEST,
@@ -117,84 +117,86 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
         return new DefaultFullHttpResponse(HTTP_1_1, NOT_FOUND);
     }
 
-    public synchronized String creatureReport(StatSnapshot s) {
+    public synchronized String creatureReport() {
 
-        // check possibility to creature report
-        if(! (s.getDifferentIpRequests().size() > 0 && s.getUniqueIpRequests().size() > 0 && s.getLastConnections().length > 0)){
-            return "<html><head><center><font size=15>Server statistic data is not available</font></center></head>";
-        }
-
-
-        String head = "<html><head><center><font size=15>Server statistic data</font></center></head>";
+        StatSnapshot s = statisticData.snapshot();
 
         //- общее количество запросов  - количество соединений, открытых в данный момент
         // Creature HTML table with column: "Total connection", "Unique connection", "Open connection".
-        StringBuilder table = new StringBuilder();
-        table.append("<table border = 2> <tbody> <tr><th>Total connection</th><th>Unique connection ")
+        StringBuilder res = new StringBuilder();
+
+        res.append("<html><head><center><font size=15>Server statistic data</font></center></head>")
+                .append("<table border = 2> <tbody> <tr><th>Total connection</th><th>Unique connection ")
                 .append(" </th><th>Open connection</th> </tr><tr><th>")
-                .append(s.getTotalConnections()).append("</th><th>").append(s.getUniqueIpRequests().size())
-                .append("</th><th>").append(s.getOpenConnection()).append("</th></tr></tbody></table>");
-        String table1 = table.toString();
+                .append(s.getTotalConnectionCount())
+                .append("</th><th>")
+                .append(s.getUniqueVisitorCount())
+                .append("</th><th>")
+                .append(s.getOpenConnectionCount())
+                .append("</th></tr></tbody></table>");
 
         //   - счетчик запросов на каждый IP в виде таблицы с колонкам и IP, кол-во запросов, время последнего запроса
-        // Creature HTML table with column: "IP", "Number request", "Last connecting time".
-        table.setLength(0);
-        table.append("<table border=2><tbody><tr><th>IP</th><th>Number request</th><th>Last connecting time</th></tr>");
-        Date date =  new Date();
-        for (Map.Entry<String, Long[]> entry : s.getDifferentIpRequests().entrySet()) {
-            date.setTime(entry.getValue()[1]);
-            table.append("<tr><th>").append(entry.getKey()).append("</th><th>")
-                    .append(entry.getValue()[0]).append("</th><th>").append(date).append("</th></tr>");
-
-
+        // Creature HTML table with column: "IP", "Request number", "Last request time".
+        res.append("<table border=2><tbody><tr><th>IP</th><th>Request number</th><th>Last request time</th></tr>");
+        Date date = new Date();
+        for (Map.Entry<String, RemoteIpInfo> entry : s.getIpInfoMap().entrySet()) {
+            String ip = entry.getKey();
+            RemoteIpInfo rii = entry.getValue();
+            date.setTime(rii.getLastQueryTime());
+            res.append("<tr><th>")
+                    .append(ip)
+                    .append("</th><th>")
+                    .append(rii.getRequestCount())
+                    .append("</th><th>")
+                    .append(date)
+                    .append("</th></tr>");
         }
-        table.append("</tbody></table>");
-        String table2 = table.toString();
+        res.append("</tbody></table>");
 
         //- количество уникальных запросов (по одному на IP)
         // Creature HTML table with column: "IP", "Number unique request".
-        table.setLength(0);
-        table.append("<table border = 2><tbody><tr><th> IP </th><th> Number unique request </th></tr>");
-        for (Map.Entry<String, HashSet<String>> entry : s.getUniqueIpRequests().entrySet()) {
-            table.append("<tr><th>").append(entry.getKey()).append("</th><th>").append(entry.getValue().size())
+        res.append("<table border = 2><tbody><tr><th>IP</th><th>Unique request number</th></tr>");
+        for (Map.Entry<String, RemoteIpInfo> entry : s.getIpInfoMap().entrySet()) {
+            final String ip = entry.getKey();
+            final RemoteIpInfo rii = entry.getValue();
+            res.append("<tr><th>")
+                    .append(ip)
+                    .append("</th><th>")
+                    .append(rii.getUriRequested().size())
                     .append("</th></tr>");
         }
-        table.append("</tbody></table>");
-        String table3 = table.toString();
+        res.append("</tbody></table>");
 
         //  - количество переадресаций по url'ам  в виде таблицы, с колонками url, кол-во переадресация
         // Creature HTML table with column: "URI", "Request number".
-        table.setLength(0);
-        table.append("<table border = 1><tbody><tr><th> URI </th><th> Request number </th></th>");
-        for (Map.Entry<String, Integer> entry : s.getUrlRequests().entrySet()) {
-            table.append("<tr><th>").append(entry.getKey()).append("</th><th>").append(entry.getValue())
+        res.append("<table border = 1><tbody><tr><th> URI </th><th> Request number </th></th>");
+        for (Map.Entry<String, Long> entry : s.getRedirections().entrySet()) {
+            final String redirectionUri = entry.getKey();
+            final Long count = entry.getValue();
+            res.append("<tr><th>")
+                    .append(redirectionUri)
+                    .append("</th><th>")
+                    .append(count)
                     .append("</th></tr>");
         }
-        table.append("</tbody></table>");
-        String table4 = table.toString();
-
+        res.append("</tbody></table>");
 
         // - в виде таблицы лог из 16 последних обработанных соединений, колонки:  src_ip, URI, timestamp,  sent_bytes,
         // received_bytes, speed (bytes/sec)
         // Creature HTML table with column: "IP", "URI", "Timestamp", "Sent bytes","Received bytes", "Speed".
-        table.setLength(0);
-        table.append("<table border = 1><tbody><tr><th>IP</th><th>URI</th><th>Timestamp</th><th>Sent bytes</th>")
+        res.append("<table border = 1><tbody><tr><th>IP</th><th>URI</th><th>Timestamp</th><th>Sent bytes</th>")
                 .append("<th>Received bytes</th><th>Speed(bytes/sec)</th></tr></tbody>");
         for (StatisticForOneConnection sfoc : s.getLastConnections()) {
-            table.append("<tr><th>").append(sfoc.getIP())
+            res.append("<tr><th>").append(sfoc.getIP())
                     .append("</th><th>").append(sfoc.getURI())
                     .append("</th><th>").append(sfoc.getDate())
                     .append("</th><th>").append(sfoc.getWriteBytes())
                     .append("</th><th>").append(sfoc.getReadBytes())
                     .append("</th><th>").append(sfoc.getSpeed()).append("</tr>");
         }
-        table.append("</tbody></table></html>");
-        String table5 = table.toString();
+        res.append("</tbody></table></html>");
 
-        table.setLength(0);
-        table.append(head).append(table1).append(table2).append(table3).append(table4).append(table5);
-
-        return table.toString();
+        return res.toString();
     }
 
 }
