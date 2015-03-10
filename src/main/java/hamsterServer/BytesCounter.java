@@ -1,19 +1,18 @@
 package hamsterServer;
 
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.traffic.ChannelTrafficShapingHandler;
 
 /*
  * Created by Fairy on 06.03.2015.
  */
-public class Metrics extends ChannelTrafficShapingHandler {
+public class BytesCounter extends ChannelTrafficShapingHandler {
 
     private StatisticData statisticData;
     private long startTime;
     private String ip;
 
-    public Metrics(StatisticData statisticData, String ip) {
+    public BytesCounter(StatisticData statisticData, String ip) {
         super(1000);
         this.statisticData = statisticData;
         this.ip = ip;

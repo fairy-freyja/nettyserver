@@ -19,7 +19,7 @@ public class Initializer extends ChannelInitializer<SocketChannel> {
 
         ChannelPipeline pipeline = sc.pipeline();
 
-        pipeline.addLast("metrics", new Metrics(statisticData, ip));
+        pipeline.addLast("metrics", new BytesCounter(statisticData, ip));
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("encoder", new HttpResponseEncoder());
         pipeline.addLast("handler", new MainServerHandler(statisticData));
