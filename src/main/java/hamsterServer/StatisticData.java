@@ -44,7 +44,7 @@ public class StatisticData {
     public synchronized void finishConnection() {
         openConnectionCount--;
     }
-    
+
     // add new connection statistic data to list, remove old if max number exceeded
     private void addOneConnection(StatisticForOneConnection oneConnection) {
         if (lastConnections.size() >= MAX_CONN_INFO_COUNT) {

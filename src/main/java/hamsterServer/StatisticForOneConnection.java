@@ -40,8 +40,8 @@ public class StatisticForOneConnection {
 	public long getReadBytes() {
 		return readBytes;
 	}
-	public String getSpeed() {
-		return speed + "";
+	public long getSpeed() {
+		return speed;
 	}
 
     public void setIp(String ip) {

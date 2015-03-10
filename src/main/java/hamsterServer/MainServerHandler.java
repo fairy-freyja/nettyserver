@@ -122,6 +122,7 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
 
         StatSnapshot s = statisticData.snapshot();
 
+
         //- общее количество запросов  - количество соединений, открытых в данный момент
         // Creature HTML table with column: "Total connection", "Unique connection", "Open connection".
         StringBuilder res = new StringBuilder();
@@ -170,7 +171,7 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
 
         //  - количество переадресаций по url'ам  в виде таблицы, с колонками url, кол-во переадресация
         // Creature HTML table with column: "URI", "Request number".
-        res.append("<table border = 1><tbody><tr><th> URI </th><th> Request number </th></th>");
+        res.append("<table border = 1><tbody><tr><th> URI </th><th> Redirection number </th></th>");
         for (Map.Entry<String, Long> entry : s.getRedirections().entrySet()) {
             final String redirectionUri = entry.getKey();
             final Long count = entry.getValue();
@@ -188,12 +189,24 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
         res.append("<table border = 1><tbody><tr><th>IP</th><th>URI</th><th>Timestamp</th><th>Sent bytes</th>")
                 .append("<th>Received bytes</th><th>Speed(bytes/sec)</th></tr></tbody>");
         for (StatisticForOneConnection sfoc : s.getLastConnections()) {
-            res.append("<tr><th>").append(sfoc.getIP())
-                    .append("</th><th>").append(sfoc.getURI())
-                    .append("</th><th>").append(sfoc.getDate())
-                    .append("</th><th>").append(sfoc.getWriteBytes())
-                    .append("</th><th>").append(sfoc.getReadBytes())
-                    .append("</th><th>").append(sfoc.getSpeed()).append("</tr>");
+            if((sfoc.getURI() == null || sfoc.getURI().equals(""))
+                    && sfoc.getReadBytes() == 0
+                    && sfoc.getWriteBytes() == 0
+                    && sfoc.getSpeed() == 0){
+                res.append("<tr><th>").append(sfoc.getIP())
+                        .append("</th><th>").append("data in processing")
+                        .append("</th><th>").append(sfoc.getDate())
+                        .append("</th><th>").append("data in processing")
+                        .append("</th><th>").append("data in processing")
+                        .append("</th><th>").append("data in processing").append("</tr>");
+            }else {
+                res.append("<tr><th>").append(sfoc.getIP())
+                        .append("</th><th>").append(sfoc.getURI())
+                        .append("</th><th>").append(sfoc.getDate())
+                        .append("</th><th>").append(sfoc.getWriteBytes())
+                        .append("</th><th>").append(sfoc.getReadBytes())
+                        .append("</th><th>").append(sfoc.getSpeed()).append("</tr>");
+            }
         }
         res.append("</tbody></table></html>");
 

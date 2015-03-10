@@ -21,22 +21,17 @@ public class BytesCounter extends ChannelTrafficShapingHandler {
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
         super.handlerAdded(ctx);
-        StatisticForOneConnection oneConnection = new StatisticForOneConnection();
-        oneConnection.setIp(ip);
-        statisticData.registerNewConnection(oneConnection);
-
-        ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).set(oneConnection);
-
     }
-
 
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
-
+        StatisticForOneConnection oneConnection = new StatisticForOneConnection();
+        oneConnection.setIp(ip);
+        statisticData.registerNewConnection(oneConnection);
+        ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).set(oneConnection);
         startTime = System.currentTimeMillis();
-
     }
 
     @Override
