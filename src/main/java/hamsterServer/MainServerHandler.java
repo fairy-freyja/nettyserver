@@ -12,11 +12,11 @@ import io.netty.handler.codec.http.DefaultFullHttpResponse;
 
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
-import static io.netty.handler.codec.http.HttpResponseStatus.FOUND;
-import static io.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
-import static io.netty.handler.codec.http.HttpResponseStatus.OK;
+import static io.netty.handler.codec.http.HttpResponseStatus.*;
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_0;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static io.netty.util.CharsetUtil.UTF_8;
 
@@ -38,13 +38,12 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
 
         if ((msg instanceof HttpRequest)) {
             String uri = ((HttpRequest) msg).getUri();
-            FullHttpResponse response = checkURI((uri));
+            FullHttpResponse response = registerRequest(oneConnection, uri);
+
             oneConnection.setUri(uri);
-            statisticData.updateUrlRequests(oneConnection);
-            statisticData.updateUniqueIpRequests(oneConnection);
+
             ctx.write(response).addListener(ChannelFutureListener.CLOSE);
         }
-
 
     }
 
@@ -61,28 +60,35 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
         ctx.close();
     }
 
-    private FullHttpResponse checkURI(String uri) throws InterruptedException {
+    private FullHttpResponse registerRequest(StatisticForOneConnection oneConnection, String uri) throws InterruptedException {
+        QueryStringDecoder decoder = new QueryStringDecoder(uri);
 
-        String url = "";
-        if (uri.contains("/redirect")) {
-            url = new QueryStringDecoder(uri).parameters().get("url").get(0);
-            uri = "/redirect";
-        }
+        statisticData.registerRequest(decoder.path(), oneConnection);
 
-        switch (uri) {
+
+
+        switch (decoder.path()) {
             case "/hello":
-                return valueHelloWorld();
+                return helloWorldResponse();
             case "/redirect":
-                return valueRedirect(url);
+                Map<String, List<String>> params = decoder.parameters();
+                if (params.containsKey("url"))
+                {
+                    final String redirectUri = params.get("url").get(0);
+                    statisticData.registerRedirectionRequest(redirectUri);
+                    return redirectResponse(redirectUri);
+                }
+                else
+                    return invalidRedirectResponse();
             case "/status":
-                return valueStatus();
+                return statusResponse();
             default:
-                return notFoundValue();
+                return notFoundResponse();
         }
     }
 
     //The method which provides an answer to the Hello world query
-    private FullHttpResponse valueHelloWorld() throws InterruptedException {
+    private FullHttpResponse helloWorldResponse() throws InterruptedException {
         String hello = "<head><font size=5>Hello world!</font></head>";
         FullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, OK,
                 Unpooled.copiedBuffer(hello, UTF_8));
@@ -91,19 +97,23 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
     }
 
     //The method which provides an answer to the Redirect query
-    private FullHttpResponse valueRedirect(String url) {
+    private FullHttpResponse redirectResponse(String url) {
         FullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, FOUND);
         response.headers().set(HttpHeaders.Names.LOCATION, url);
         return response;
     }
 
     //The method which provides an answer to the Status query
-    private FullHttpResponse valueStatus() {
-        return new DefaultFullHttpResponse(HTTP_1_1, OK, Unpooled.copiedBuffer(creatureReport(statisticData.snapshot()), UTF_8));
+    private FullHttpResponse statusResponse() {
+        return new DefaultFullHttpResponse(HTTP_1_1, OK,
+                Unpooled.copiedBuffer(creatureReport(statisticData.snapshot()), UTF_8));
     }
-
+    private FullHttpResponse invalidRedirectResponse() {
+        return new DefaultFullHttpResponse(HTTP_1_1, BAD_REQUEST,
+                Unpooled.copiedBuffer("<head><font size=5> Redirect should have uri query parameter </font></head>", UTF_8));
+    }
     //The method which provides an answer to the not found page query
-    private FullHttpResponse notFoundValue() {
+    private FullHttpResponse notFoundResponse() {
         return new DefaultFullHttpResponse(HTTP_1_1, NOT_FOUND);
     }
 
