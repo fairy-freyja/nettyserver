@@ -4,19 +4,13 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.HttpRequest;
-import io.netty.handler.codec.http.QueryStringDecoder;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.*;
 
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
 import static io.netty.handler.codec.http.HttpResponseStatus.*;
-import static io.netty.handler.codec.http.HttpVersion.HTTP_1_0;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import static io.netty.util.CharsetUtil.UTF_8;
 
@@ -64,9 +58,6 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
         QueryStringDecoder decoder = new QueryStringDecoder(uri);
 
         statisticData.registerRequest(decoder.path(), oneConnection);
-
-
-
         switch (decoder.path()) {
             case "/hello":
                 return helloWorldResponse();
@@ -87,13 +78,11 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
+
     //The method which provides an answer to the Hello world query
     private FullHttpResponse helloWorldResponse() throws InterruptedException {
-        String hello = "<head><font size=5>Hello world!</font></head>";
-        FullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, OK,
-                Unpooled.copiedBuffer(hello, UTF_8));
         Thread.sleep(10000);
-        return response;
+        return makeHttpResponse(wrapResponseString("Hello world!"));
     }
 
     //The method which provides an answer to the Redirect query
@@ -103,21 +92,33 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
         return response;
     }
 
-    //The method which provides an answer to the Status query
-    private FullHttpResponse statusResponse() {
-        return new DefaultFullHttpResponse(HTTP_1_1, OK,
-                Unpooled.copiedBuffer(creatureReport(), UTF_8));
-    }
     private FullHttpResponse invalidRedirectResponse() {
-        return new DefaultFullHttpResponse(HTTP_1_1, BAD_REQUEST,
-                Unpooled.copiedBuffer("<head><font size=5> Redirect should have uri query parameter </font></head>", UTF_8));
-    }
-    //The method which provides an answer to the not found page query
-    private FullHttpResponse notFoundResponse() {
-        return new DefaultFullHttpResponse(HTTP_1_1, NOT_FOUND);
+        return makeHttpResponse(wrapResponseString("Redirect should have uri query parameter"), BAD_REQUEST);
     }
 
-    public synchronized String creatureReport() {
+    //The method which provides an answer to the Status query
+    private FullHttpResponse statusResponse() {
+        return makeHttpResponse(createReport(statisticData));
+    }
+
+    //The method which provides an answer to the not found page query
+    private FullHttpResponse notFoundResponse() {
+        return makeHttpResponse(wrapResponseString("Invalid URI"), NOT_FOUND);
+    }
+
+    private DefaultFullHttpResponse makeHttpResponse(String text) {
+        return new DefaultFullHttpResponse(HTTP_1_1, OK, Unpooled.copiedBuffer(text, UTF_8));
+    }
+
+    private String wrapResponseString(String text) {
+        return String.format("<head><font size=5>%s</font></head>", text);
+    }
+
+    private DefaultFullHttpResponse makeHttpResponse(String text, HttpResponseStatus status) {
+        return new DefaultFullHttpResponse(HTTP_1_1, status, Unpooled.copiedBuffer(text, UTF_8));
+    }
+
+    public synchronized String createReport(StatisticData statisticData) {
 
         StatSnapshot s = statisticData.snapshot();
 
