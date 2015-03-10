@@ -9,70 +9,71 @@ import io.netty.handler.traffic.ChannelTrafficShapingHandler;
  */
 public class Metrics extends ChannelTrafficShapingHandler {
 
-    private StatisticForOneConnection oneConnectionStat = new StatisticForOneConnection();
-
+    private StatisticData statisticData;
     private long startTime;
+    private String ip;
 
-    public Metrics(String ip) {
+    public Metrics(StatisticData statisticData, String ip) {
         super(1000);
-        oneConnectionStat.setIp(ip);
+        this.statisticData = statisticData;
+        this.ip = ip;
     }
 
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
         super.handlerAdded(ctx);
         System.out.println("IN handAdd");
-        Initializer.statisticData.incrementTotalRequests();
-        Initializer.statisticData.incrementOpenConnection();
+
+        statisticData.incrementTotalRequests();
+        statisticData.incrementOpenConnection();
     }
 
     @Override
     public void handlerRemoved(ChannelHandlerContext ctx) throws Exception {
         super.handlerRemoved(ctx);
         System.out.println("IN handRem");
-        Initializer.statisticData.decrementOpenConnection();
+        statisticData.decrementOpenConnection();
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         super.channelActive(ctx);
         System.out.println("IN channelActive Metrics");
+        StatisticForOneConnection oneConnection = new StatisticForOneConnection();
+        oneConnection.setIp(ip);
+        ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).set(oneConnection);
+        statisticData.updateDifferentIpRequests(ctx);
         startTime = System.currentTimeMillis();
+
     }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         super.channelRead(ctx, msg);
-        System.out.println("IN channelRead Metrics");
-
-        if (msg instanceof HttpRequest) {
-            oneConnectionStat.setUri(((HttpRequest) msg).getUri());
-//            Initializer.statisticData.updateUrlRequests(((HttpRequest) msg).getUri());
-        }
+        StatisticForOneConnection oneConnection = ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).get();
+        oneConnection.setReadBytes(trafficCounter.cumulativeReadBytes());
     }
 
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
         super.channelReadComplete(ctx);
-        System.out.println("IN channelReadComplete Metrics");
-
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         System.out.println("IN channelInactive Metrics");
 
-        oneConnectionStat.setReadBytes(trafficCounter.cumulativeReadBytes());
-
-        oneConnectionStat.setWriteBytes(trafficCounter.cumulativeWrittenBytes());
+        StatisticForOneConnection oneConnection = ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).get();
+        long writeByte = trafficCounter.cumulativeWrittenBytes();
+        oneConnection.setWriteBytes(writeByte);
 
         long totalWorkTime = (System.currentTimeMillis() - startTime) / 1000;
         long totalReedWrightBytes = (trafficCounter.cumulativeReadBytes() + trafficCounter.cumulativeWrittenBytes());
 
         // if work time < 0 sec, set statistic report Speed value of totalReedWrightBytes;
-        oneConnectionStat.setSpeed(totalWorkTime > 0 ? totalReedWrightBytes / totalWorkTime : totalReedWrightBytes);
-        Initializer.statisticData.addLastConnection(oneConnectionStat);
-        Initializer.statisticData.doUpdates();
+        oneConnection.setSpeed(totalWorkTime > 0 ? totalReedWrightBytes / totalWorkTime : totalReedWrightBytes);
+        statisticData.addLastConnection(oneConnection);
+
         super.channelInactive(ctx);
     }
 

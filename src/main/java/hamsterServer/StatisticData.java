@@ -1,5 +1,8 @@
 package hamsterServer;
 
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.util.AttributeKey;
+
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -9,6 +12,9 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class StatisticData {
 
+    public static final AttributeKey<StatisticForOneConnection> CURRENT_CONNECTION_INFO_KEY =
+            AttributeKey.valueOf("humsterserver.CURRENT_CONNECTION_INFO");
+
     // count total number of connections
     private final AtomicInteger totalConnections;
 
@@ -17,14 +23,14 @@ public class StatisticData {
 
     // Kay is String contains IP, and Value is AtomicLong[] contains query_number in
     // first element and last_query_time_in_milliseconds in second.
-    private HashMap<String, AtomicLong[]> differentIpRequests;
+    private HashMap<String, Long[]> differentIpRequests;
 
     //Hear Key String contains IP, Value String[] - unique requests,
     // So number unique requests for some IP is String[].length for current IP Kay String
     private HashMap<String, HashSet<String>> uniqueIpRequests;
 
     // Hear Kay String contains URL name, and Value Integer is number of this url call
-    private Map<String, AtomicInteger> urlRequests = new TreeMap<>();
+    private Map<String, Integer> urlRequests = new TreeMap<>();
 
     // statistic for last 16 connections
     private LinkedList<StatisticForOneConnection> lastConnections;
@@ -41,11 +47,8 @@ public class StatisticData {
 
 
     //return statistic data for last connection
-    private StatisticForOneConnection getStatisticForLastConnection() {
-        if (lastConnections.size() > 0) {
-            return lastConnections.get(lastConnections.size() - 1);
-        }
-        return null;
+    private StatisticForOneConnection getStatisticForLastConnection(ChannelHandlerContext ctx) {
+        return ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).get();
     }
 
     // add last connection statistic data to List lastConnections
@@ -70,14 +73,15 @@ public class StatisticData {
 
     // This method update number_url_call if urlRequests contains last connection URL
     // Or add a new pair of values if it's not.
-    synchronized public void updateUrlRequests(String url) {
-        AtomicInteger countRequests = new AtomicInteger(1);
-        if (urlRequests.containsKey(url)) {
-            countRequests = urlRequests.get(url);
-            countRequests.incrementAndGet();
-            urlRequests.put(url, countRequests);
+    synchronized public void updateUrlRequests(StatisticForOneConnection oneConnection) {
+        String uri = oneConnection.getURI();
+
+        Integer countRequests = new Integer(1);
+        if (urlRequests.containsKey(uri)) {
+            countRequests = urlRequests.get(uri) +1;
+            urlRequests.put(uri, countRequests);
         } else {
-            urlRequests.put(url, countRequests);
+            urlRequests.put(uri, countRequests);
         }
 
     }
@@ -86,27 +90,28 @@ public class StatisticData {
     // first element and last_query_time_in_milliseconds in second.
     // This method update query_number and last_query_time if  differentIpRequests contains last connection IP
     // And add a new pair of values if it's not.
-    synchronized public void updateDifferentIpRequests() {
-        String ip = getStatisticForLastConnection().getIP();
-        if (differentIpRequests.containsKey(ip)) {
-            AtomicLong[] value = differentIpRequests.get(ip);
-            value[0].incrementAndGet();
-            value[1] = new AtomicLong(lastConnections.get(lastConnections.size() - 1).getDate().getTime());
+    synchronized public void updateDifferentIpRequests(ChannelHandlerContext ctx) {
+        StatisticForOneConnection oneConnection = ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).get();
+        String ip = oneConnection.getIP();
+        if (differentIpRequests.containsKey(ip) && differentIpRequests.size()>0) {
+            Long[] value = differentIpRequests.get(ip);
+            value[0]++;
+            value[1] = oneConnection.getDate().getTime();
             differentIpRequests.put(ip, value);
         } else {
-            AtomicLong numberRequests = new AtomicLong(1);
-            AtomicLong time = new AtomicLong(lastConnections.get(lastConnections.size() - 1).getDate().getTime());
-            AtomicLong[] value = {numberRequests, time};
+            Long numberRequests = new Long(1);
+            Long time = oneConnection.getDate().getTime();
+            Long[] value = {numberRequests, time};
             differentIpRequests.put(ip, value);
         }
     }
 
 
-    synchronized public void updateUniqueIpRequests() {
+    synchronized public void updateUniqueIpRequests(StatisticForOneConnection oneConnection) {
         // In uniqueIpRequests map Key is String contains IP, Value is String[] - unique requests,
         // So number unique requests for some IP is String[].length for current IP Kay String
-        String ip = getStatisticForLastConnection().getIP();
-        String uri = getStatisticForLastConnection().getURI();
+        String ip = oneConnection.getIP();
+        String uri = oneConnection.getURI();
         HashSet<String> currentValue = new HashSet<>();
 
         if (uniqueIpRequests.containsKey(ip)) {
@@ -120,25 +125,13 @@ public class StatisticData {
     }
 
 
-    public synchronized void doUpdates() {
-        if(lastConnections.size()<=0){
-            return;
-        }
-            updateDifferentIpRequests();
-            updateUniqueIpRequests();
-            updateUrlRequests(getStatisticForLastConnection().getURI());
-    }
 
     public synchronized String creatureReport() {
-
-        // do updates before start creature Report String
-        // doUpdates();
 
         // check possibility to creature report
         if(! (differentIpRequests.size() > 0 && uniqueIpRequests.size() > 0 && lastConnections.size() > 0)){
                 return "<html><head><center><font size=15>Server statistic data is not available</font></center></head>";
         }
-
 
 
         String head = "<html><head><center><font size=15>Server statistic data</font></center></head>";
@@ -157,8 +150,8 @@ public class StatisticData {
         table.setLength(0);
         table.append("<table border=2><tbody><tr><th>IP</th><th>Number request</th><th>Last connecting time</th></tr>");
         Date date =  new Date();
-        for (Map.Entry<String, AtomicLong[]> entry : differentIpRequests.entrySet()) {
-            date.setTime(entry.getValue()[1].get());
+        for (Map.Entry<String, Long[]> entry : differentIpRequests.entrySet()) {
+            date.setTime(entry.getValue()[1]);
             table.append("<tr><th>").append(entry.getKey()).append("</th><th>")
                     .append(entry.getValue()[0]).append("</th><th>").append(date).append("</th></tr>");
 
@@ -182,7 +175,7 @@ public class StatisticData {
         // Creature HTML table with column: "URI", "Request number".
         table.setLength(0);
         table.append("<table border = 1><tbody><tr><th> URI </th><th> Request number </th></th>");
-        for (Map.Entry<String, AtomicInteger> entry : urlRequests.entrySet()) {
+        for (Map.Entry<String, Integer> entry : urlRequests.entrySet()) {
             table.append("<tr><th>").append(entry.getKey()).append("</th><th>").append(entry.getValue())
                     .append("</th></tr>");
         }

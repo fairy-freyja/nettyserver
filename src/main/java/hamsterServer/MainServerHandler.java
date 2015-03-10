@@ -22,17 +22,22 @@ import static io.netty.util.CharsetUtil.UTF_8;
  */
 public class MainServerHandler extends ChannelInboundHandlerAdapter {
 
-    MainServerHandler() {
+    private  StatisticData statisticData;
+
+    MainServerHandler(StatisticData statisticData) {
+        this.statisticData = statisticData;
     }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        StatisticForOneConnection oneConnection = ctx.channel().attr(StatisticData.CURRENT_CONNECTION_INFO_KEY).get();
 
         if ((msg instanceof HttpRequest)) {
             String uri = ((HttpRequest) msg).getUri();
             FullHttpResponse response = checkURI((uri));
-            // TODO delete string
-            System.out.println("responseLength = " + response.content().writerIndex());
+            oneConnection.setUri(uri);
+            statisticData.updateUrlRequests(oneConnection);
+            statisticData.updateUniqueIpRequests(oneConnection);
             ctx.write(response).addListener(ChannelFutureListener.CLOSE);
         }
 
@@ -90,7 +95,7 @@ public class MainServerHandler extends ChannelInboundHandlerAdapter {
 
     //The method which provides an answer to the Status query
     private FullHttpResponse valueStatus() {
-        return new DefaultFullHttpResponse(HTTP_1_1, OK, Unpooled.copiedBuffer(Initializer.statisticData.creatureReport(), UTF_8));
+        return new DefaultFullHttpResponse(HTTP_1_1, OK, Unpooled.copiedBuffer(statisticData.creatureReport(), UTF_8));
     }
 
     //The method which provides an answer to the not found page query

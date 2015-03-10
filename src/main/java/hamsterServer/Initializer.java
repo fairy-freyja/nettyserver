@@ -10,7 +10,7 @@ import io.netty.handler.codec.http.HttpResponseEncoder;
  * Created by Fairy on 06.03.2015.
  */
 public class Initializer extends ChannelInitializer<SocketChannel> {
-    public static StatisticData statisticData = new StatisticData();
+    StatisticData statisticData = new StatisticData();
 
     @Override
     protected void initChannel(SocketChannel sc) throws Exception {
@@ -19,9 +19,9 @@ public class Initializer extends ChannelInitializer<SocketChannel> {
 
         ChannelPipeline pipeline = sc.pipeline();
 
+        pipeline.addLast("metrics", new Metrics(statisticData, ip));
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("encoder", new HttpResponseEncoder());
-        pipeline.addLast("metrics", new Metrics(ip));
-        pipeline.addLast("handler", new MainServerHandler());
+        pipeline.addLast("handler", new MainServerHandler(statisticData));
     }
 }
